@@ -52,8 +52,10 @@ import java.nio.charset.StandardCharsets;
  *   <li>Provide smart back navigation (watch pages jump straight home).</li>
  *   <li>Host fullscreen video playback in a {@link FrameLayout} overlay.</li>
  *   <li>Show an offline fallback page when the main frame fails to load.</li>
- *   <li>Inject a double-tap-to-like gesture with an animated heart pop-up on
- *       the YouTube mobile web player.</li>
+     *   <li>Inject a double-tap-to-like gesture with an animated heart pop-up on
+     *       the YouTube mobile web player.</li>
+     *   <li>Inject a dedicated Shorts double-tap-to-like gesture (MutationObserver
+     *       + touch handler) for the reel container, with its own heart pop-up.</li>
  *   <li>Expose the in-app settings sheet (About + Sign in with Google + Clear
  *       App Cache).</li>
  * </ul>
@@ -140,9 +142,22 @@ public class MainActivity extends AppCompatActivity {
             + "overlay.classList.add('ytpro-show');\n"
             + "window.setTimeout(function() { if (overlay.parentNode) { overlay.parentNode.removeChild(overlay); } }, 850);\n"
             + "}\n"
+            + "function ytProInReel(node) {\n"
+            + "while (node && node !== document) {\n"
+            + "if (node.nodeType === 1) {\n"
+            + "var tag = node.tagName || '';\n"
+            + "if (tag === 'YTM-REEL-VIDEO-RENDERER' || tag === 'YTD-REEL-VIDEO-RENDERER' || tag === 'YTM-SHORTS' || tag === 'REEL-PLAYER') { return true; }\n"
+            + "var reelCls = node.getAttribute ? (node.getAttribute('class') || '') : '';\n"
+            + "if ((' ' + reelCls + ' ').indexOf(' shortsContainer ') !== -1 || (' ' + reelCls + ' ').indexOf(' reel-player ') !== -1) { return true; }\n"
+            + "}\n"
+            + "node = node.parentNode;\n"
+            + "}\n"
+            + "return false;\n"
+            + "}\n"
             + "function ytProHandleTap(event) {\n"
             + "var node = event.target || event.srcElement;\n"
             + "if (!ytProFindPlayer(node)) { return; }\n"
+            + "if (ytProInReel(node)) { return; }\n"
             + "var now = Date.now();\n"
             + "if (now - lastTapTime < DOUBLE_TAP_MAX_INTERVAL_MS) {\n"
             + "lastTapTime = 0;\n"
@@ -154,6 +169,79 @@ public class MainActivity extends AppCompatActivity {
             + "}\n"
             + "document.addEventListener('touchend', function(e) { lastTouchEndTime = Date.now(); ytProHandleTap(e); }, { passive: true });\n"
             + "document.addEventListener('click', function(e) { if (Date.now() - lastTouchEndTime < 500) { return; } ytProHandleTap(e); }, true);\n"
+            + "})();\n";
+
+    /**
+     * Dedicated double-tap-to-like gesture for YouTube Shorts.
+     *
+     * <p>Shorts render inside a reel container ({@code ytm-reel-video-renderer},
+     * {@code reel-player} / {@code .shortsContainer}) that swallows ordinary
+     * clicks, so this script is injected on every {@code onPageFinished()} in
+     * addition to {@link #DOUBLE_TAP_LIKE_JS} (which deliberately ignores reel
+     * taps). It installs once per document (window guard), keeps a cached
+     * handle on the reel container and its Like button through a
+     * {@code MutationObserver} (the Shorts DOM is rebuilt on every swipe), and
+     * on two taps &lt; 300ms apart clicks the Shorts Like button and pops an
+     * animated heart at the tap position.
+     */
+    private static final String SHORTS_DOUBLE_TAP_LIKE_JS =
+            "(function() {\n"
+            + "if (window.__ytProShortsDoubleTapLikeInstalled) { return; }\n"
+            + "window.__ytProShortsDoubleTapLikeInstalled = true;\n"
+            + "var REEL_CONTAINER_SELECTOR = 'ytm-reel-video-renderer, reel-player, .shortsContainer, ytm-shorts, ytd-reel-video-renderer';\n"
+            + "var SHORTS_LIKE_SELECTOR = 'ytm-like-button-renderer button, .like-button button, [aria-label*=\"Like this short\"]';\n"
+            + "function ytProRefreshShortsCache() {\n"
+            + "var reel = document.querySelector(REEL_CONTAINER_SELECTOR);\n"
+            + "window.__ytProShortsReel = reel;\n"
+            + "if (reel) { window.__ytProShortsLikeButton = reel.querySelector(SHORTS_LIKE_SELECTOR) || document.querySelector(SHORTS_LIKE_SELECTOR); }\n"
+            + "}\n"
+            + "if (typeof MutationObserver !== 'undefined') {\n"
+            + "ytProRefreshShortsCache();\n"
+            + "new MutationObserver(function(mutations) {\n"
+            + "for (var i = 0; i < mutations.length; i++) {\n"
+            + "if (mutations[i].addedNodes && mutations[i].addedNodes.length) { ytProRefreshShortsCache(); break; }\n"
+            + "}\n"
+            + "}).observe(document.documentElement, { childList: true, subtree: true });\n"
+            + "}\n"
+            + "let lastTap = 0;\n"
+            + "document.addEventListener('touchend', function(e) {\n"
+            + "const currentTime = new Date().getTime();\n"
+            + "const tapLength = currentTime - lastTap;\n"
+            + "if (tapLength < 300 && tapLength > 0) {\n"
+            + "// A double tap on the Like control itself already liked the short\n"
+            + "// through its own click; skip it so the second tap cannot undo it.\n"
+            + "const target = e.target;\n"
+            + "if (target && target.closest && target.closest('ytm-like-button-renderer, .like-button, [aria-label*=\"Like this short\"]')) { lastTap = currentTime; return; }\n"
+            + "// Target Shorts Like Button\n"
+            + "let likeBtn = document.querySelector('ytm-like-button-renderer button, .like-button button, [aria-label*=\"Like this short\"]');\n"
+            + "if (!likeBtn) { likeBtn = window.__ytProShortsLikeButton || null; }\n"
+            + "if (likeBtn) {\n"
+            + "likeBtn.click();\n"
+            + "showHeart(e.changedTouches[0].clientX, e.changedTouches[0].clientY);\n"
+            + "}\n"
+            + "}\n"
+            + "lastTap = currentTime;\n"
+            + "});\n"
+            + "\n"
+            + "function showHeart(x, y) {\n"
+            + "const heart = document.createElement('div');\n"
+            + "heart.innerHTML = '❤️';\n"
+            + "heart.style.position = 'fixed';\n"
+            + "heart.style.left = (x - 25) + 'px';\n"
+            + "heart.style.top = (y - 25) + 'px';\n"
+            + "heart.style.fontSize = '50px';\n"
+            + "heart.style.pointerEvents = 'none';\n"
+            + "heart.style.zIndex = '99999';\n"
+            + "heart.style.transition = 'transform 0.6s ease-out, opacity 0.6s ease-out';\n"
+            + "heart.style.transform = 'scale(1)';\n"
+            + "heart.style.opacity = '1';\n"
+            + "document.body.appendChild(heart);\n"
+            + "setTimeout(() => {\n"
+            + "heart.style.transform = 'scale(2.2)';\n"
+            + "heart.style.opacity = '0';\n"
+            + "}, 50);\n"
+            + "setTimeout(() => heart.remove(), 700);\n"
+            + "}\n"
             + "})();\n";
 
     private static final long EXIT_CONFIRM_WINDOW_MS = 2000L;
@@ -345,6 +433,18 @@ public class MainActivity extends AppCompatActivity {
      */
     private void injectDoubleTapToLike(@NonNull WebView view) {
         view.evaluateJavascript(DOUBLE_TAP_LIKE_JS, null);
+    }
+
+    /**
+     * Injects the dedicated Shorts double-tap-to-like gesture
+     * ({@link #SHORTS_DOUBLE_TAP_LIKE_JS}) into the currently loaded page.
+     *
+     * <p>Safe to call on every page: the script installs itself once per
+     * document (window guard) and only reacts when a Shorts Like button can be
+     * resolved, so non-Shorts pages are unaffected.
+     */
+    private void injectShortsDoubleTapToLike(@NonNull WebView view) {
+        view.evaluateJavascript(SHORTS_DOUBLE_TAP_LIKE_JS, null);
     }
 
     /**
@@ -728,9 +828,11 @@ public class MainActivity extends AppCompatActivity {
             progressBar.setVisibility(View.GONE);
             // Persist fresh session cookies (e.g. right after Google sign-in
             // redirects back to YouTube) and install the double-tap-to-like
-            // gesture on the web player.
+            // gestures: the web-player one and the dedicated Shorts one (the
+            // reel container intercepts standard clicks).
             CookieManager.getInstance().flush();
             injectDoubleTapToLike(view);
+            injectShortsDoubleTapToLike(view);
         }
 
         @Override

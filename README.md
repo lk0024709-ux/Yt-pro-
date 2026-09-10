@@ -14,6 +14,7 @@ Android 5.0 (API 21).
 | Google session kept in-app: `accounts.google.com` allow-list, third-party cookies, cookie flush | `MainActivity.isInternalWebUrl()` / `configureCookies()` |
 | "Sign in with Google" entry in the settings sheet | `MainActivity.signInWithGoogle()` |
 | Double-tap-to-like on the web player with an animated heart pop-up | `MainActivity.injectDoubleTapToLike()` |
+| Dedicated Shorts double-tap-to-like (MutationObserver + touch handler, reel-container aware) with heart pop-up | `MainActivity.injectShortsDoubleTapToLike()` |
 | Smart back: `/watch` pages jump straight home instead of walking video history | `MainActivity.onBackPressed()` |
 | Fullscreen video via `WebChromeClient` in a `FrameLayout` overlay | `MainActivity.showFullscreenVideo()` |
 | Lifecycle-safe: pauses timers/audio, tears the WebView down on destroy | `MainActivity.onPause()/onDestroy()` |
@@ -79,11 +80,40 @@ app/src/main/
 ├── assets/offline.html          # offline fallback page (JS bridge: YTPro.retry)
 └── res/
     ├── layout/                  # activity_main, activity_splash, dialog_settings
-    ├── drawable/                # logo, gear, launcher vectors
-    ├── mipmap-anydpi-v26/       # adaptive icon (API 26+)
-    ├── mipmap-*/                # raster launcher icons (API 21-25)
+    ├── drawable/                # gear + monochrome icon vectors
+    ├── drawable-*/              # density-specific splash logo PNGs
+    ├── mipmap-anydpi-v26/       # adaptive icon (API 26+), PNG layers
+    ├── mipmap-*/                # legacy launcher icons + adaptive layers
     └── values/                  # strings, colors, styles
-tools/generate_icons.py          # regenerates the raster launcher icons
+brand/ic_logo_reference.png      # source artwork for icons + splash
+tools/generate_icons.py          # regenerates every raster brand asset
+tools/smoke_test_js.py           # node smoke test for the injected JS payloads
+tools/verify_project.py          # static verification vs android-34.jar
+```
+
+## Rebranding the icons / splash
+
+All raster brand assets are generated from `brand/ic_logo_reference.png`
+(the neon-red mark). Drop a replacement artwork with the same name and run:
+
+```bash
+python3 tools/generate_icons.py   # needs Pillow + numpy
+```
+
+It rewrites the legacy squircle/round launcher PNGs, the adaptive
+background/foreground layers (108dp, all densities) and the splash logo PNGs.
+
+## Verification
+
+```bash
+# XML well-formedness, resource linking, and Android API checks against the
+# real framework jar (from https://github.com/Sable/android-platforms,
+# android-34/android.jar).
+python3 tools/verify_project.py --android-jar /path/to/android-34.jar
+
+# Extracts both injected JS payloads from MainActivity.java and executes them
+# in node against a stub DOM (double-tap like, reel exclusion, heart pop-up).
+python3 tools/smoke_test_js.py
 ```
 
 ## Developer notes
