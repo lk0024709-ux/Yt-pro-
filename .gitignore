@@ -1,0 +1,36 @@
+# Gradle
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Android / Java
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.log
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Keystores (never commit signing material)
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+
+# OS noise
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
