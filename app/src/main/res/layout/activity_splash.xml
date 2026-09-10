@@ -16,10 +16,11 @@
 
     <ImageView
         android:id="@+id/splash_logo"
-        android:layout_width="92dp"
-        android:layout_height="92dp"
+        android:layout_width="128dp"
+        android:layout_height="128dp"
         android:layout_gravity="center_horizontal"
         android:contentDescription="@string/content_description_logo"
+        android:scaleType="fitCenter"
         android:src="@drawable/ic_logo" />
 
     <TextView

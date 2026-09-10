@@ -209,13 +209,18 @@ def build_resource_table():
                 table["style"].add(attr_name)
             elif tag in table:
                 table[tag].add(attr_name)
-    # layouts, drawables, mipmaps
-    for folder, rtype in (("layout", "layout"), ("drawable", "drawable"), ("anim", "anim")):
+    # layouts, drawables (vectors + rasters), anims
+    for folder, rtype in (("layout", "layout"), ("anim", "anim")):
         d = os.path.join(RES, folder)
         if os.path.isdir(d):
             for f in os.listdir(d):
                 if f.endswith(".xml"):
                     table[rtype].add(f[:-4])
+    for d in os.listdir(RES):
+        if d == "drawable" or d.startswith("drawable-"):
+            for f in os.listdir(os.path.join(RES, d)):
+                if f.endswith((".xml", ".png", ".jpg", ".jpeg", ".webp")):
+                    table["drawable"].add(os.path.splitext(f)[0])
     for d in os.listdir(RES):
         if d.startswith("mipmap"):
             for f in os.listdir(os.path.join(RES, d)):

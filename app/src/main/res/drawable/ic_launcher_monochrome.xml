@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome (themed-icon) layer: single-colour silhouette of the play mark,
+     artwork kept inside the 66dp safe zone. The triangle is punched out with
+     even-odd fill so themed icons stay legible. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M39,36h30a11,11 0 0 1 11,11v14a11,11 0 0 1 -11,11h-30a11,11 0 0 1 -11,-11v-14a11,11 0 0 1 11,-11z M50,45L63,54L50,63z" />
+</vector>
