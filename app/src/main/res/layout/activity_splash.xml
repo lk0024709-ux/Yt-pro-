@@ -15,8 +15,10 @@
         android:layout_weight="1.1" />
 
     <ImageView
+        android:id="@+id/splash_logo"
         android:layout_width="92dp"
         android:layout_height="92dp"
+        android:layout_gravity="center_horizontal"
         android:contentDescription="@string/content_description_logo"
         android:src="@drawable/ic_logo" />
 

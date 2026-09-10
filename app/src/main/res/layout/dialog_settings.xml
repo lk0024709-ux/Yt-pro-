@@ -80,6 +80,16 @@
             android:id="@+id/settings_credits"
             style="@style/SettingsValue" />
 
+        <TextView
+            style="@style/SettingsHeading"
+            android:layout_marginTop="14dp"
+            android:text="@string/settings_account_heading" />
+
+        <Button
+            android:id="@+id/button_sign_in"
+            style="@style/SettingsButton"
+            android:text="@string/action_sign_in" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
