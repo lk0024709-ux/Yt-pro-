@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Branding (locked) -->
+    <string name="app_name">YT Pro</string>
+    <string name="splash_tagline">A lightweight client for the YouTube mobile web</string>
+
+    <!-- Attribution (locked) -->
+    <string name="attribution_developer_label">Developer</string>
+    <string name="attribution_developer">Google</string>
+    <string name="attribution_credits_label">Credits</string>
+    <string name="attribution_credits">AU (Custom Client Wrapper &amp; Optimizations)</string>
+
+    <!-- Settings sheet -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_about_heading">About</string>
+    <string name="version_format">Version %1$s</string>
+    <string name="action_clear_cache">Clear App Cache</string>
+    <string name="action_reload">Reload</string>
+    <string name="action_home">Home</string>
+    <string name="action_close">Close</string>
+    <string name="cache_cleared">Cache cleared</string>
+    <string name="cache_clear_failed">Some cache files could not be removed</string>
+
+    <!-- Navigation -->
+    <string name="press_back_again_to_exit">Press back again to exit</string>
+
+    <!-- Accessibility -->
+    <string name="content_description_settings">Open settings</string>
+    <string name="content_description_logo">YT Pro logo</string>
+</resources>

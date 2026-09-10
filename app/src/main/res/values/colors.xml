@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- YouTube-style surfaces -->
+    <color name="background">#FF0F0F0F</color>
+    <color name="surface">#FF1F1F1F</color>
+    <color name="surface_elevated">#FF2A2A2A</color>
+    <color name="divider">#33FFFFFF</color>
+
+    <color name="text_primary">#FFF1F1F1</color>
+    <color name="text_secondary">#B3AAAAAA</color>
+
+    <color name="brand_red">#FFFF0000</color>
+    <color name="scrim">#66000000</color>
+</resources>
