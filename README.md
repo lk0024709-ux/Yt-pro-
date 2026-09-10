@@ -11,11 +11,14 @@ Android 5.0 (API 21).
 |---|---|
 | Loads `https://m.youtube.com/` fullscreen, DOM storage + hardware acceleration | `MainActivity.configureWebView()` |
 | User-Agent `"; wv"` strip to fix Google sign-in (`disallowed_useragent`) | `MainActivity.applySignInSafeUserAgent()` |
+| Google session kept in-app: `accounts.google.com` allow-list, third-party cookies, cookie flush | `MainActivity.isInternalWebUrl()` / `configureCookies()` |
+| "Sign in with Google" entry in the settings sheet | `MainActivity.signInWithGoogle()` |
+| Double-tap-to-like on the web player with an animated heart pop-up | `MainActivity.injectDoubleTapToLike()` |
 | Smart back: `/watch` pages jump straight home instead of walking video history | `MainActivity.onBackPressed()` |
 | Fullscreen video via `WebChromeClient` in a `FrameLayout` overlay | `MainActivity.showFullscreenVideo()` |
 | Lifecycle-safe: pauses timers/audio, tears the WebView down on destroy | `MainActivity.onPause()/onDestroy()` |
 | Offline fallback error page | `MainActivity.showOfflinePage()` + `assets/offline.html` |
-| Settings gear with About (Developer: Google / Credits: AU) + Clear App Cache | `MainActivity.showSettingsDialog()` |
+| Settings gear with About (Developer: Google / Credits: AU) + Sign in + Clear App Cache | `MainActivity.showSettingsDialog()` |
 | Splash launcher screen | `SplashActivity` |
 | GitHub Actions APK builds | `.github/workflows/build-apk.yml` |
 

@@ -348,12 +348,15 @@ def check_manifest():
 # receiver variable -> framework type
 RECEIVER_TYPES = {
     "webView": "android/webkit/WebView",
+    "view": "android/webkit/WebView",
     "settings": "android/webkit/WebSettings",
     "cookieManager": "android/webkit/CookieManager",
     "progressBar": "android/widget/ProgressBar",
     "fullscreenContainer": "android/widget/FrameLayout",
     "settingsButton": "android/widget/ImageButton",
     "customView": "android/view/View",
+    "content": "android/view/View",
+    "uri": "android/net/Uri",
     "dialog": "androidx/appcompat/app/AlertDialog",
 }
 
@@ -364,6 +367,7 @@ STATIC_TYPES = {
     "ActivityInfo": "android/content/pm/ActivityInfo",
     "View": "android/view/View",
     "Intent": "android/content/Intent",
+    "Uri": "android/net/Uri",
 }
 
 

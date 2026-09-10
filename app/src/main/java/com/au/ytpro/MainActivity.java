@@ -46,10 +46,16 @@ import java.nio.charset.StandardCharsets;
  *   <li>Load {@value #HOME_URL} with DOM storage and hardware acceleration.</li>
  *   <li>Rewrite the User-Agent so Google sign-in does not reject the client
  *       with {@code disallowed_useragent}.</li>
+ *   <li>Keep {@code accounts.google.com} and {@code m.youtube.com} navigation
+ *       inside the WebView so the YouTube session (subscriptions, likes,
+ *       playlists) stays synced via persisted cookies.</li>
  *   <li>Provide smart back navigation (watch pages jump straight home).</li>
  *   <li>Host fullscreen video playback in a {@link FrameLayout} overlay.</li>
  *   <li>Show an offline fallback page when the main frame fails to load.</li>
- *   <li>Expose the in-app settings sheet (About + Clear App Cache).</li>
+ *   <li>Inject a double-tap-to-like gesture with an animated heart pop-up on
+ *       the YouTube mobile web player.</li>
+ *   <li>Expose the in-app settings sheet (About + Sign in with Google + Clear
+ *       App Cache).</li>
  * </ul>
  */
 public class MainActivity extends AppCompatActivity {
@@ -65,6 +71,90 @@ public class MainActivity extends AppCompatActivity {
 
     /** JavaScript bridge name used by {@code offline.html}. */
     private static final String BRIDGE_NAME = "YTPro";
+
+    /** Direct entry point for the in-app "Sign in with Google" action. */
+    private static final String SIGN_IN_URL =
+            "https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fm.youtube.com%2F";
+
+    /**
+     * Double-tap-to-like gesture for the YouTube mobile web player.
+     *
+     * <p>Injected on every {@code onPageFinished()}. It listens (once per
+     * document, via a window guard) for two taps landing &lt; 300ms apart on
+     * the player viewport ({@code .html5-video-player} / {@code video}),
+     * programmatically clicks the Like button, and renders a centered,
+     * animated SVG heart overlay that pops, scales up, and fades out before
+     * removing itself from the DOM.
+     */
+    private static final String DOUBLE_TAP_LIKE_JS =
+            "(function() {\n"
+            + "if (window.__ytProDoubleTapLikeInstalled) { return; }\n"
+            + "window.__ytProDoubleTapLikeInstalled = true;\n"
+            + "var DOUBLE_TAP_MAX_INTERVAL_MS = 300;\n"
+            + "var lastTapTime = 0;\n"
+            + "var lastTouchEndTime = 0;\n"
+            + "function ytProFindPlayer(node) {\n"
+            + "while (node && node !== document) {\n"
+            + "if (node.nodeType === 1) {\n"
+            + "if (node.tagName === 'VIDEO') { return node; }\n"
+            + "if (node.id === 'player' || node.id === 'movie_player') { return node; }\n"
+            + "var cls = node.getAttribute ? (node.getAttribute('class') || '') : '';\n"
+            + "if ((' ' + cls + ' ').indexOf(' html5-video-player ') !== -1) { return node; }\n"
+            + "}\n"
+            + "node = node.parentNode;\n"
+            + "}\n"
+            + "return null;\n"
+            + "}\n"
+            + "function ytProClickLikeButton() {\n"
+            + "var selectors = ['button[aria-label*=\"like\"]', 'button[aria-label*=\"Like\"]', '.slim-video-action-bar-actions button:first-child', '#like-button button', 'ytd-like-button-renderer button'];\n"
+            + "for (var i = 0; i < selectors.length; i++) {\n"
+            + "var btn = null;\n"
+            + "try { btn = document.querySelector(selectors[i]); } catch (ignored) { btn = null; }\n"
+            + "if (btn) {\n"
+            + "try {\n"
+            + "if (btn.getAttribute && btn.getAttribute('aria-pressed') === 'true') { return true; }\n"
+            + "btn.click();\n"
+            + "} catch (ignored2) {}\n"
+            + "return true;\n"
+            + "}\n"
+            + "}\n"
+            + "return false;\n"
+            + "}\n"
+            + "function ytProEnsureHeartStyle() {\n"
+            + "if (document.getElementById('ytpro-like-style')) { return; }\n"
+            + "var style = document.createElement('style');\n"
+            + "style.id = 'ytpro-like-style';\n"
+            + "style.textContent = '#ytpro-like-heart{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%) scale(0);z-index:2147483647;pointer-events:none;opacity:0;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.45));}' + '#ytpro-like-heart.ytpro-show{animation:ytpro-heart-pop 0.8s ease-out forwards;}' + '@keyframes ytpro-heart-pop{0%{opacity:0;transform:translate(-50%,-50%) scale(0);}20%{opacity:1;transform:translate(-50%,-50%) scale(1.25);}45%{opacity:1;transform:translate(-50%,-50%) scale(0.95);}70%{opacity:1;transform:translate(-50%,-60%) scale(1);}100%{opacity:0;transform:translate(-50%,-80%) scale(1.1);}}';\n"
+            + "if (document.head) { document.head.appendChild(style); } else { document.documentElement.appendChild(style); }\n"
+            + "}\n"
+            + "function ytProShowHeart() {\n"
+            + "ytProEnsureHeartStyle();\n"
+            + "var old = document.getElementById('ytpro-like-heart');\n"
+            + "if (old && old.parentNode) { old.parentNode.removeChild(old); }\n"
+            + "var overlay = document.createElement('div');\n"
+            + "overlay.id = 'ytpro-like-heart';\n"
+            + "overlay.innerHTML = '<svg width=\"96\" height=\"96\" viewBox=\"0 0 24 24\" fill=\"#ff0000\" stroke=\"#ffffff\" stroke-width=\"1.5\"><path d=\"M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z\"/></svg>';\n"
+            + "if (!document.body) { return; }\n"
+            + "document.body.appendChild(overlay);\n"
+            + "void overlay.offsetWidth;\n"
+            + "overlay.classList.add('ytpro-show');\n"
+            + "window.setTimeout(function() { if (overlay.parentNode) { overlay.parentNode.removeChild(overlay); } }, 850);\n"
+            + "}\n"
+            + "function ytProHandleTap(event) {\n"
+            + "var node = event.target || event.srcElement;\n"
+            + "if (!ytProFindPlayer(node)) { return; }\n"
+            + "var now = Date.now();\n"
+            + "if (now - lastTapTime < DOUBLE_TAP_MAX_INTERVAL_MS) {\n"
+            + "lastTapTime = 0;\n"
+            + "ytProClickLikeButton();\n"
+            + "ytProShowHeart();\n"
+            + "} else {\n"
+            + "lastTapTime = now;\n"
+            + "}\n"
+            + "}\n"
+            + "document.addEventListener('touchend', function(e) { lastTouchEndTime = Date.now(); ytProHandleTap(e); }, { passive: true });\n"
+            + "document.addEventListener('click', function(e) { if (Date.now() - lastTouchEndTime < 500) { return; } ytProHandleTap(e); }, true);\n"
+            + "})();\n";
 
     private static final long EXIT_CONFIRM_WINDOW_MS = 2000L;
 
@@ -170,9 +260,49 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void configureCookies() {
-        CookieManager cookieManager = CookieManager.getInstance();
-        cookieManager.setAcceptCookie(true);
-        cookieManager.setAcceptThirdPartyCookies(webView, true);
+        // First-party cookies keep the YouTube session; third-party cookies let
+        // the accounts.google.com sign-in flow set its session inside our
+        // WebView so subscriptions, likes, and playlists stay synced.
+        CookieManager.getInstance().setAcceptCookie(true);
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
+    }
+
+    /**
+     * Re-asserts the sign-in-safe User-Agent on the given WebView.
+     *
+     * <p>Called on every navigation and page start so Google sign-in routes
+     * never observe the {@code "; wv"} marker (which triggers
+     * {@code disallowed_useragent}), even after redirects or WebView-internal
+     * User-Agent resets. A no-op once the marker is gone.
+     */
+    private void ensureSignInSafeUserAgent(@NonNull WebView view) {
+        applySignInSafeUserAgent(view.getSettings());
+    }
+
+    /**
+     * Hosts that must always load inside this WebView.
+     *
+     * <p>{@code m.youtube.com} is the wrapped client and
+     * {@code accounts.google.com} is its sign-in flow; sibling YouTube/Google
+     * hosts are included so auth redirects never bounce out to an external
+     * browser (which would strand the session cookies outside the app).
+     */
+    private boolean isInternalWebUrl(@Nullable Uri uri) {
+        if (uri == null) {
+            return false;
+        }
+        String host = uri.getHost();
+        if (host == null) {
+            return false;
+        }
+        String lowerHost = host.toLowerCase();
+        return lowerHost.equals("m.youtube.com")
+                || lowerHost.endsWith(".youtube.com")
+                || lowerHost.equals("youtu.be")
+                || lowerHost.endsWith(".youtu.be")
+                || lowerHost.equals("accounts.google.com")
+                || lowerHost.equals("google.com")
+                || lowerHost.endsWith(".google.com");
     }
 
     // ------------------------------------------------------------------
@@ -184,6 +314,37 @@ public class MainActivity extends AppCompatActivity {
         if (webView != null) {
             webView.loadUrl(HOME_URL);
         }
+    }
+
+    /**
+     * Opens the Google sign-in flow for YouTube inside this WebView.
+     *
+     * <p>Because {@code accounts.google.com} is allow-listed in
+     * {@link #isInternalWebUrl} and third-party cookies are enabled, the
+     * session lands in our own cookie jar and subscriptions, likes, and
+     * playlists stay synced.
+     */
+    private void signInWithGoogle() {
+        offlinePageShown = false;
+        if (webView != null) {
+            webView.loadUrl(SIGN_IN_URL);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Double-tap to like
+    // ------------------------------------------------------------------
+
+    /**
+     * Injects the double-tap-to-like gesture listener ({@link #DOUBLE_TAP_LIKE_JS})
+     * into the currently loaded page.
+     *
+     * <p>Safe to call on every page: the script installs itself once per
+     * document (window guard), attaches delegated listeners, and only reacts
+     * to taps inside the video player, so non-player pages are unaffected.
+     */
+    private void injectDoubleTapToLike(@NonNull WebView view) {
+        view.evaluateJavascript(DOUBLE_TAP_LIKE_JS, null);
     }
 
     /**
@@ -339,6 +500,10 @@ public class MainActivity extends AppCompatActivity {
                 .setView(content)
                 .create();
 
+        content.findViewById(R.id.button_sign_in).setOnClickListener(v -> {
+            dialog.dismiss();
+            signInWithGoogle();
+        });
         content.findViewById(R.id.button_clear_cache).setOnClickListener(v -> {
             dialog.dismiss();
             clearAppCache();
@@ -470,12 +635,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         // Leave fullscreen and freeze the engine: this is what stops audio from
-        // playing on after the app is backgrounded.
+        // playing on after the app is backgrounded. Flush the cookie jar so the
+        // Google/YouTube session survives process death.
         hideFullscreenVideo();
         if (webView != null) {
             webView.onPause();
             webView.pauseTimers();
         }
+        CookieManager.getInstance().flush();
         super.onPause();
     }
 
@@ -520,23 +687,50 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public boolean shouldOverrideUrlLoading(@NonNull WebView view, @NonNull WebResourceRequest request) {
             Uri uri = request.getUrl();
-            return uri != null && handleExternalUrl(uri.toString());
+            if (uri == null) {
+                return false;
+            }
+            if (handleExternalUrl(uri.toString())) {
+                return true;
+            }
+            // m.youtube.com and accounts.google.com (plus sibling YouTube/Google
+            // hosts) always load inside this WebView so the sign-in session and
+            // its cookies persist. Re-assert the stripped User-Agent here so
+            // Google sign-in routes never see the "; wv" marker.
+            if (isInternalWebUrl(uri)) {
+                ensureSignInSafeUserAgent(view);
+            }
+            return false;
         }
 
         @Override
         @SuppressWarnings("deprecation")
         public boolean shouldOverrideUrlLoading(@NonNull WebView view, @NonNull String url) {
-            return handleExternalUrl(url);
+            if (handleExternalUrl(url)) {
+                return true;
+            }
+            if (url != null && isInternalWebUrl(Uri.parse(url))) {
+                ensureSignInSafeUserAgent(view);
+            }
+            return false;
         }
 
         @Override
         public void onPageStarted(@NonNull WebView view, String url, @Nullable android.graphics.Bitmap favicon) {
             progressBar.setVisibility(View.VISIBLE);
+            // Belt-and-braces: redirects can cycle through Google sign-in hosts,
+            // so re-assert the "; wv"-free User-Agent on every page start.
+            ensureSignInSafeUserAgent(view);
         }
 
         @Override
         public void onPageFinished(@NonNull WebView view, String url) {
             progressBar.setVisibility(View.GONE);
+            // Persist fresh session cookies (e.g. right after Google sign-in
+            // redirects back to YouTube) and install the double-tap-to-like
+            // gesture on the web player.
+            CookieManager.getInstance().flush();
+            injectDoubleTapToLike(view);
         }
 
         @Override

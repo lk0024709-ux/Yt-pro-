@@ -13,7 +13,9 @@
     <!-- Settings sheet -->
     <string name="settings_title">Settings</string>
     <string name="settings_about_heading">About</string>
+    <string name="settings_account_heading">Account</string>
     <string name="version_format">Version %1$s</string>
+    <string name="action_sign_in">Sign in with Google</string>
     <string name="action_clear_cache">Clear App Cache</string>
     <string name="action_reload">Reload</string>
     <string name="action_home">Home</string>
