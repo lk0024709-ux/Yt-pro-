@@ -11,7 +11,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 /**
  * Launcher screen. Shows the YT Pro brand and attribution, then hands over to
- * {@link MainActivity} which owns the WebView.
+ * {@link MainActivity} which hosts the native Home / Shorts / Subscriptions /
+ * Library tabs.
  *
  * <p>The delay is deliberately short: it exists so the brand is visible on cold
  * start, not to slow the user down. Relaunching the launcher icon while the app

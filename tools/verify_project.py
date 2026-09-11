@@ -194,7 +194,8 @@ def method_exists(index: dict, fqn: str, method: str) -> bool:
 
 def build_resource_table():
     table = {k: set() for k in
-             ("id", "string", "color", "drawable", "layout", "mipmap", "style", "dimen", "attr", "anim")}
+             ("id", "string", "color", "drawable", "layout", "mipmap", "style", "dimen", "attr", "anim",
+              "menu")}
     values_dir = os.path.join(RES, "values")
     for name in os.listdir(values_dir):
         if not name.endswith(".xml"):
@@ -209,8 +210,9 @@ def build_resource_table():
                 table["style"].add(attr_name)
             elif tag in table:
                 table[tag].add(attr_name)
-    # layouts, drawables (vectors + rasters), anims
-    for folder, rtype in (("layout", "layout"), ("anim", "anim")):
+    # layouts, drawables (vectors + rasters), anims, menus, color selectors
+    for folder, rtype in (("layout", "layout"), ("anim", "anim"),
+                          ("menu", "menu"), ("color", "color")):
         d = os.path.join(RES, folder)
         if os.path.isdir(d):
             for f in os.listdir(d):
@@ -226,13 +228,12 @@ def build_resource_table():
             for f in os.listdir(os.path.join(RES, d)):
                 base = f.split(".")[0]
                 table["mipmap"].add(base)
-    # ids declared via @+id in layouts
+    # ids declared via @+id in any res XML (layouts *and* menus)
     id_re = re.compile(r"@\+id/(\w+)")
-    layout_dir = os.path.join(RES, "layout")
-    if os.path.isdir(layout_dir):
-        for f in os.listdir(layout_dir):
+    for dirpath, _, files in os.walk(RES):
+        for f in files:
             if f.endswith(".xml"):
-                text = open(os.path.join(layout_dir, f)).read()
+                text = open(os.path.join(dirpath, f)).read()
                 table["id"].update(id_re.findall(text))
     return table
 
@@ -350,29 +351,42 @@ def check_manifest():
         fail("no launcher intent-filter")
 
 
-# receiver variable -> framework type
+# receiver variable -> framework type (native client; androidx/media3/third-party
+# receivers resolve against their own artifacts and are skipped here)
 RECEIVER_TYPES = {
-    "webView": "android/webkit/WebView",
-    "view": "android/webkit/WebView",
-    "settings": "android/webkit/WebSettings",
-    "cookieManager": "android/webkit/CookieManager",
-    "progressBar": "android/widget/ProgressBar",
-    "fullscreenContainer": "android/widget/FrameLayout",
-    "settingsButton": "android/widget/ImageButton",
-    "customView": "android/view/View",
+    "view": "android/view/View",
     "content": "android/view/View",
+    "context": "android/content/Context",
+    "resources": "android/content/res/Resources",
+    "bundle": "android/os/Bundle",
+    "savedInstanceState": "android/os/Bundle",
+    "outState": "android/os/Bundle",
+    "intent": "android/content/Intent",
     "uri": "android/net/Uri",
+    "event": "android/view/MotionEvent",
+    "inflater": "android/view/LayoutInflater",
+    "handler": "android/os/Handler",
+    "gestureDetector": "android/view/GestureDetector",
+    "animator": "android/animation/Animator",
+    "animatorSet": "android/animation/AnimatorSet",
+    "progressBar": "android/widget/ProgressBar",
+    "prefs": "android/content/SharedPreferences",
+    "editor": "android/content/SharedPreferences$Editor",
     "dialog": "androidx/appcompat/app/AlertDialog",
+    "playerView": "androidx/media3/ui/PlayerView",
+    "recyclerView": "androidx/recyclerview/widget/RecyclerView",
 }
 
 STATIC_TYPES = {
     "Toast": "android/widget/Toast",
     "SystemClock": "android/os/SystemClock",
-    "CookieManager": "android/webkit/CookieManager",
     "ActivityInfo": "android/content/pm/ActivityInfo",
     "View": "android/view/View",
     "Intent": "android/content/Intent",
     "Uri": "android/net/Uri",
+    "Log": "android/util/Log",
+    "Looper": "android/os/Looper",
+    "ObjectAnimator": "android/animation/ObjectAnimator",
 }
 
 
@@ -382,6 +396,8 @@ def check_android_api(index, java_sources):
     missing = 0
     for path, text in java_sources.items():
         for receiver, method in call_re.findall(text):
+            if method[:1].isupper():
+                continue  # nested-class instantiation, e.g. new View.OnClickListener()
             fqn = RECEIVER_TYPES.get(receiver) or STATIC_TYPES.get(receiver)
             if not fqn:
                 continue
@@ -394,22 +410,22 @@ def check_android_api(index, java_sources):
                 missing += 1
 
     # Fully-qualified framework types referenced inline (not via import). These
-    # are the ones this codebase spells out in signatures.
-    for fqn in ("android.graphics.Bitmap", "android.webkit.SslErrorHandler",
-                "android.net.http.SslError"):
+    # are representative framework types the native codebase relies on.
+    for fqn in ("android.graphics.Bitmap", "android.content.SharedPreferences",
+                "android.animation.AnimatorSet"):
         slash = fqn.replace(".", "/")
         if slash in index:
             ok("inline type %s resolves" % fqn)
         else:
             fail("inline type %s NOT in android.jar" % fqn)
 
-    # Overridden WebViewClient / WebChromeClient callbacks must exist upstream.
+    # Overridden framework callbacks (gestures, heart animation) must exist
+    # upstream. Activity/Fragment lifecycles come from appcompat and are
+    # provided by that dependency, not android.jar.
     overridden = {
-        "android/webkit/WebViewClient": [
-            "shouldOverrideUrlLoading", "onPageStarted", "onPageFinished",
-            "onReceivedError", "onReceivedSslError"],
-        "android/webkit/WebChromeClient": [
-            "onProgressChanged", "onShowCustomView", "onHideCustomView"],
+        "android/view/GestureDetector$SimpleOnGestureListener": [
+            "onDown", "onSingleTapConfirmed", "onDoubleTap"],
+        "android/animation/AnimatorListenerAdapter": ["onAnimationEnd"],
         "androidx/appcompat/app/AppCompatActivity": [
             "onCreate", "onBackPressed", "onResume", "onPause", "onStop",
             "onDestroy", "onSaveInstanceState", "onConfigurationChanged"],

@@ -1,31 +1,53 @@
-# YT Pro - ProGuard / R8 rules.
+# YT Pro (native client) - ProGuard / R8 rules.
 
 # ---------------------------------------------------------------------------
-# JavaScript bridge.
-# The retry button in assets/offline.html calls YTPro.retry(); R8 must keep the
-# bridge class, its public methods, and the @JavascriptInterface annotation.
+# NewPipeExtractor: heavy reflection (service discovery, parsers, YouTube
+# signature deciphering via the bundled Rhino engine). Keep the whole
+# extractor model plus the JavaScript runtime it reflects into.
 # ---------------------------------------------------------------------------
--keepclassmembers class com.au.ytpro.MainActivity$OfflineBridge {
-    @android.webkit.JavascriptInterface <methods>;
+-keep class org.schabi.newpipe.extractor.** { *; }
+-keepclassmembers class org.schabi.newpipe.extractor.** { *; }
+-keep class org.mozilla.javascript.** { *; }
+-keep class org.mozilla.classfile.ClassFileWriter { *; }
+-dontwarn org.mozilla.javascript.tools.**
+-dontwarn org.schabi.newpipe.extractor.**
+-keepattributes Signature, InnerClasses, EnclosingMethod
+
+# ---------------------------------------------------------------------------
+# Networking / image loading / player ship their own consumer rules; silence
+# warnings for repackaged internals only.
+# ---------------------------------------------------------------------------
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-dontwarn com.bumptech.glide.**
+-dontwarn androidx.media3.**
+
+# Glide: keep the module + parser contracts so image loading survives
+# shrinking (no AppGlideModule is used; Glide.with(view) only).
+-keep public class * implements com.bumptech.glide.module.GlideModule
+-keep class * extends com.bumptech.glide.module.AppGlideModule {
+    <init>(...);
+}
+-keep public enum com.bumptech.glide.load.ImageHeaderParser$ImageType {
+    **[] $VALUES;
+    public *;
+}
+-keep class com.bumptech.glide.load.data.ParcelFileDescriptorRewinder$InternalRewinder {
+    *** rewind();
 }
 
-# ---------------------------------------------------------------------------
-# Android framework classes that the WebView reaches into via reflection.
-# ---------------------------------------------------------------------------
--keepclassmembers class * extends android.webkit.WebViewClient {
-    public void *(android.webkit.WebView, java.lang.String, android.graphics.Bitmap);
-    public boolean *(android.webkit.WebView, java.lang.String);
-    public void *(android.webkit.WebView, java.lang.String);
+# Serializable models cross component boundaries via executors/caches.
+-keepclassmembers class com.au.ytpro.data.** implements java.io.Serializable {
+    static final long serialVersionUID;
+    private static final java.io.ObjectStreamField[] serialPersistentFields;
+    private void writeObject(java.io.ObjectOutputStream);
+    private void readObject(java.io.ObjectInputStream);
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
 }
 
--keepclassmembers class * extends android.webkit.WebChromeClient {
-    public void onShowCustomView(android.view.View, android.webkit.WebChromeClient$CustomViewCallback);
-    public void onHideCustomView();
-}
-
-# Keep the generated BuildConfig so the About sheet can read VERSION_NAME.
+# Keep the generated BuildConfig so the About screen can read VERSION_NAME.
 -keep class com.au.ytpro.BuildConfig { *; }
 
-# Preserve annotations (the bridge rule relies on @JavascriptInterface).
+# Preserve annotations.
 -keepattributes *Annotation*
--keepattributes JavascriptInterface

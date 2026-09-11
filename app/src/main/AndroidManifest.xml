@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
+        android:name=".YTProApp"
         android:allowBackup="true"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
@@ -29,9 +30,15 @@
             android:name=".MainActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|density|fontScale"
             android:exported="false"
-            android:hardwareAccelerated="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.YTPro.Fullscreen"
+            android:theme="@style/Theme.YTPro"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".WatchActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|density|fontScale"
+            android:exported="false"
+            android:theme="@style/Theme.YTPro"
             android:windowSoftInputMode="adjustResize" />
 
     </application>

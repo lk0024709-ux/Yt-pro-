@@ -1,32 +1,34 @@
 # YT Pro
 
-A **native Android WebView wrapper** for the YouTube mobile web client
-(`https://m.youtube.com`). No Chrome history clutter, smart back navigation,
-fullscreen playback, and a small in-app settings sheet — on every device back to
-Android 5.0 (API 21).
+A **100% native Android client** for YouTube — no WebView. Playback runs on
+ExoPlayer (AndroidX Media3) and every feed, search result, channel lookup and
+stream URL is resolved directly through NewPipeExtractor, with no Google API
+quota — on every device back to Android 5.0 (API 21).
 
 ## Feature summary
 
 | Feature | Where |
 |---|---|
-| Loads `https://m.youtube.com/` fullscreen, DOM storage + hardware acceleration | `MainActivity.configureWebView()` |
-| User-Agent `"; wv"` strip to fix Google sign-in (`disallowed_useragent`) | `MainActivity.applySignInSafeUserAgent()` |
-| Google session kept in-app: `accounts.google.com` allow-list, third-party cookies, cookie flush | `MainActivity.isInternalWebUrl()` / `configureCookies()` |
-| "Sign in with Google" entry in the settings sheet | `MainActivity.signInWithGoogle()` |
-| Double-tap-to-like on the web player with an animated heart pop-up | `MainActivity.injectDoubleTapToLike()` |
-| Dedicated Shorts double-tap-to-like (MutationObserver + touch handler, reel-container aware) with heart pop-up | `MainActivity.injectShortsDoubleTapToLike()` |
-| Smart back: `/watch` pages jump straight home instead of walking video history | `MainActivity.onBackPressed()` |
-| Fullscreen video via `WebChromeClient` in a `FrameLayout` overlay | `MainActivity.showFullscreenVideo()` |
-| Lifecycle-safe: pauses timers/audio, tears the WebView down on destroy | `MainActivity.onPause()/onDestroy()` |
-| Offline fallback error page | `MainActivity.showOfflinePage()` + `assets/offline.html` |
-| Settings gear with About (Developer: Google / Credits: AU) + Sign in + Clear App Cache | `MainActivity.showSettingsDialog()` |
+| Native bottom navigation: Home, Shorts, Subscriptions, Library | `MainActivity` + `res/menu/bottom_nav_menu.xml` |
+| Home feed: trending + search in a `RecyclerView` of `CardView` rows (thumbnail, duration, channel avatar, title, views) | `ui/HomeFragment`, `ui/VideoAdapter` |
+| Shorts: vertical `ViewPager2` with one integrated `PlayerView` per page, auto-play/pause on swipe | `ui/ShortsFragment`, `ui/ShortsAdapter` |
+| Shorts double-tap-to-like with animated floating heart pop-up | `ShortsAdapter.Holder.popHeart()` |
+| Watch screen: native `PlayerView` with styled controls + seekbar, double-tap −10s / +10s seek, play/pause, fullscreen toggle | `WatchActivity` |
+| Watch "Up next" recommendation list below the player | `WatchActivity` + `item_related_video.xml` |
+| Subtitles/CC disabled by default on every player | `player/PlayerManager.createPlayer()` |
+| H.264-first stream selection with decoder fallback for legacy chipsets; DASH/HLS adaptive fallbacks | `data/YouTubeRepository`, `player/PlayerManager` |
+| Shared 200 MB ExoPlayer disk cache + bounded extractor HTTP cache | `player/PlayerManager`, `data/DownloaderImpl` |
+| Local subscriptions (no sign-in) with merged uploads feed; long-press to unsubscribe | `data/SubscriptionsStore`, `ui/SubscriptionsFragment` |
+| Local likes backing Shorts + Watch hearts; liked list in Library | `data/LikesStore`, `ui/LibraryFragment` |
+| Settings dialog with About (Developer: Google / Credits: AU) + Clear App Cache (extractor + player + image caches) | `ui/LibraryFragment`, `data/CacheManager` |
 | Splash launcher screen | `SplashActivity` |
 | GitHub Actions APK builds | `.github/workflows/build-apk.yml` |
 
 ## Branding (locked)
 
 * **App name:** `YT Pro` (`res/values/strings.xml`)
-* **Splash screen & About dialog:**
+* **Launcher icon:** the neon-red YouTube mark across all `res/mipmap-*` densities
+* **Splash screen & Settings dialog:**
   * Developer: `Google`
   * Credits: `AU (Custom Client Wrapper & Optimizations)`
 
@@ -42,7 +44,9 @@ Android 5.0 (API 21).
 ./gradlew assembleRelease    # -> app/build/outputs/apk/release/app-release-unsigned.apk
 ```
 
-The release variant is unsigned by default.
+The release variant is unsigned by default. NewPipeExtractor is fetched from
+JitPack (see `settings.gradle`); everything else comes from Google / Maven
+Central.
 
 ## Signing a release
 
@@ -73,21 +77,42 @@ The release variant is unsigned by default.
 
 ```
 app/src/main/
-├── AndroidManifest.xml          # permissions, activities, launcher
+├── AndroidManifest.xml          # permissions, app class, activities, launcher
 ├── java/com/au/ytpro/
+│   ├── YTProApp.java            # Application: NewPipe.init(DownloaderImpl)
 │   ├── SplashActivity.java      # launcher / brand screen
-│   └── MainActivity.java        # WebView host + fullscreen + settings
-├── assets/offline.html          # offline fallback page (JS bridge: YTPro.retry)
+│   ├── MainActivity.java        # bottom nav + 4 native tabs
+│   ├── WatchActivity.java       # native player + gestures + Up next
+│   ├── data/
+│   │   ├── VideoItem.java       # UI snapshot of a video / Short / stream
+│   │   ├── DownloaderImpl.java  # extractor HTTP client (OkHttp + disk cache)
+│   │   ├── YouTubeRepository.java # trending/search/shorts/stream/channel
+│   │   ├── SubscriptionsStore.java# local channel subscriptions
+│   │   ├── LikesStore.java      # local likes
+│   │   └── CacheManager.java    # Clear App Cache (all native caches)
+│   ├── player/
+│   │   └── PlayerManager.java   # ExoPlayer factory: H.264 fallback, no CC,
+│   │                            # shared disk cache, DASH/HLS/progressive
+│   ├── ui/
+│   │   ├── HomeFragment.java    # trending + search feed
+│   │   ├── ShortsFragment.java  # vertical pager host
+│   │   ├── ShortsAdapter.java   # per-page player + double-tap heart
+│   │   ├── SubscriptionsFragment.java
+│   │   ├── LibraryFragment.java # about + settings dialog + liked list
+│   │   └── VideoAdapter.java    # shared CardView feed rows
+│   └── util/
+│       └── FormatUtils.java     # thumbnails, views, durations, meta lines
 └── res/
-    ├── layout/                  # activity_main, activity_splash, dialog_settings
-    ├── drawable/                # gear + monochrome icon vectors
+    ├── layout/                  # activities, fragments, cards, shorts pages
+    ├── menu/bottom_nav_menu.xml # 4 native tabs
+    ├── color/nav_item_tint.xml  # bottom-nav checked/unchecked tint
+    ├── drawable/                # tab/action vectors + player overlays
     ├── drawable-*/              # density-specific splash logo PNGs
     ├── mipmap-anydpi-v26/       # adaptive icon (API 26+), PNG layers
     ├── mipmap-*/                # legacy launcher icons + adaptive layers
     └── values/                  # strings, colors, styles
 brand/ic_logo_reference.png      # source artwork for icons + splash
 tools/generate_icons.py          # regenerates every raster brand asset
-tools/smoke_test_js.py           # node smoke test for the injected JS payloads
 tools/verify_project.py          # static verification vs android-34.jar
 ```
 
@@ -106,24 +131,28 @@ background/foreground layers (108dp, all densities) and the splash logo PNGs.
 ## Verification
 
 ```bash
-# XML well-formedness, resource linking, and Android API checks against the
-# real framework jar (from https://github.com/Sable/android-platforms,
-# android-34/android.jar).
+# XML well-formedness, resource linking, Java syntax, and Android API checks
+# against the real framework jar (from
+# https://github.com/Sable/android-platforms, android-34/android.jar).
 python3 tools/verify_project.py --android-jar /path/to/android-34.jar
-
-# Extracts both injected JS payloads from MainActivity.java and executes them
-# in node against a stub DOM (double-tap like, reel exclusion, heart pop-up).
-python3 tools/smoke_test_js.py
 ```
 
 ## Developer notes
 
-* **Why the User-Agent patch works:** the OAuth flow rejects any UA containing
-  `"; wv"` (a WebView marker). We strip it once, on startup, so sign-in behaves
-  like a real browser.
-* **Back-navigation order:** leave fullscreen → collapse `/watch` → WebView
-  history → double-tap to exit.
-* **Background audio:** `onPause()` calls `webView.pauseTimers()` and leaves any
-  fullscreen video, which is what stops audio after the app is backgrounded.
-* **Offline page:** loaded with `loadDataWithBaseURL()` from `assets/`, and its
-  Retry button calls back into the app through a `@JavascriptInterface` bridge.
+* **No WebView, no quotas:** `YouTubeRepository` talks to YouTube through
+  NewPipeExtractor (`ServiceList.YouTube`), and `DownloaderImpl` is the
+  OkHttp bridge the extractor requires. Core-library desugaring
+  (`desugar_jdk_libs_nio`) backports the `java.time`/streams APIs the
+  extractor needs down to API 21.
+* **Legacy chipsets:** playback candidates are ordered progressive-H.264
+  first, then other progressive URLs, then DASH/HLS manifests; the
+  renderers factory additionally enables decoder fallback, and every
+  player disables text tracks (CC) by default.
+* **Back-navigation order:** leave fullscreen → back to the Home tab →
+  double-press to exit.
+* **Background audio:** `WatchActivity.onPause()` pauses the player and
+  `ShortsFragment.onPause()` pauses every page, so audio never plays on
+  after the app is backgrounded.
+* ** Rotation:** activities declare `configChanges` and the Watch screen
+  re-asserts immersive mode, so playback survives rotation and fullscreen
+  toggling without rebuffering.

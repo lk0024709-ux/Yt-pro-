@@ -14,4 +14,8 @@
 
     <color name="brand_red">#FFFF0000</color>
     <color name="scrim">#66000000</color>
+
+    <!-- Native player overlays -->
+    <color name="badge_background">#CC000000</color>
+    <color name="like_red">#FFFF2D55</color>
 </resources>

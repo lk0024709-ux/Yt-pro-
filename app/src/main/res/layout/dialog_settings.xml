@@ -80,16 +80,6 @@
             android:id="@+id/settings_credits"
             style="@style/SettingsValue" />
 
-        <TextView
-            style="@style/SettingsHeading"
-            android:layout_marginTop="14dp"
-            android:text="@string/settings_account_heading" />
-
-        <Button
-            android:id="@+id/button_sign_in"
-            style="@style/SettingsButton"
-            android:text="@string/action_sign_in" />
-
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
@@ -97,20 +87,15 @@
             android:layout_marginBottom="8dp"
             android:background="@color/divider" />
 
+        <TextView
+            style="@style/SettingsValue"
+            android:text="@string/splash_tagline" />
+
         <Button
             android:id="@+id/button_clear_cache"
             style="@style/SettingsButton"
+            android:layout_marginTop="12dp"
             android:text="@string/action_clear_cache" />
-
-        <Button
-            android:id="@+id/button_reload"
-            style="@style/SettingsButton"
-            android:text="@string/action_reload" />
-
-        <Button
-            android:id="@+id/button_home"
-            style="@style/SettingsButton"
-            android:text="@string/action_home" />
 
         <Button
             android:id="@+id/button_close"
